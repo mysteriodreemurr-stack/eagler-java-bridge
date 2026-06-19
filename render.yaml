@@ -1,0 +1,15 @@
+# Render Blueprint. Create the service via Dashboard > New > Blueprint, or just
+# New > Web Service and point it at this repo (Render auto-detects the Dockerfile).
+services:
+  - type: web
+    name: eagler-java-bridge
+    runtime: docker
+    plan: free                 # free instance, no credit card for a public repo
+    autoDeploy: true
+    # Render injects $PORT automatically; the container binds 0.0.0.0:$PORT.
+    # EaglerWeb answers HTTP GET on that port, so Render's port scan succeeds.
+    envVars:
+      - key: SERVER            # backend host:port (internal FalixNodes port)
+        value: mysteriodreemurr.falixsrv.me:24896
+      - key: MAX_MEMORY        # leave headroom under Render free 512MB
+        value: 460M

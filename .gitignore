@@ -1,0 +1,4 @@
+# Nothing runtime-generated is committed; jars are downloaded at image build.
+*.jar
+/server/
+*.log

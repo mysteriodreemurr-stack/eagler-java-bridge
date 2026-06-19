@@ -1,0 +1,7 @@
+# Shell scripts must stay LF or they break inside the Linux container.
+*.sh         text eol=lf
+entrypoint.sh text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+*.template   text eol=lf
+Dockerfile   text eol=lf

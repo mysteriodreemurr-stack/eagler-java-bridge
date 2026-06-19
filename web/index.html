@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Eaglercraft Bridge</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; font-family: system-ui, sans-serif; background:#11131a; color:#e8eaf0;
+         display:flex; min-height:100vh; align-items:center; justify-content:center; }
+  .card { max-width: 560px; padding: 2rem 2.25rem; background:#1b1e29; border:1px solid #2c3140;
+          border-radius: 14px; box-shadow: 0 8px 40px rgba(0,0,0,.4); }
+  h1 { margin:0 0 .25rem; font-size:1.5rem; }
+  p { line-height:1.55; color:#b9c0d0; }
+  code { background:#0e1016; padding:.15rem .4rem; border-radius:6px; color:#8fd6ff; }
+  a.btn { display:inline-block; margin-top:.5rem; padding:.6rem 1rem; background:#3b82f6; color:#fff;
+          text-decoration:none; border-radius:8px; font-weight:600; }
+  .url { font-size:1.05rem; color:#7ee787; word-break:break-all; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>🦅 Eaglercraft Bridge</h1>
+    <p>This is the WebSocket bridge to the Minecraft world. Join from any
+       Eaglercraft 1.8 or 1.12 web client by adding this server address:</p>
+    <p class="url" id="wss"></p>
+    <p>If you reached this page from a hosted Eaglercraft client, click
+       <b>Multiplayer → Add Server</b> and paste the address above.</p>
+    <p>Java Edition players connect directly to
+       <code>mysteriodreemurr.falixsrv.me</code> instead — same world.</p>
+    <a class="btn" href="https://eaglercraft.com/" target="_blank" rel="noopener">Open an Eaglercraft client ↗</a>
+  </div>
+<script>
+  // Same-origin wss:// URL (Render serves this page over https, so wss is required).
+  document.getElementById('wss').textContent =
+    (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/';
+</script>
+</body>
+</html>

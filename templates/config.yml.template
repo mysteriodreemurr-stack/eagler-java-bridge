@@ -1,0 +1,49 @@
+# BungeeCord config for the Eaglercraft bridge.
+# Rendered by entrypoint.sh: ${PORT} and ${SERVER} are substituted at startup.
+#
+# CRITICAL settings for this topology:
+#   ip_forward : false   -> connect to the backend as a PLAIN offline client.
+#                           The backend has spigot.yml bungeecord:false and will
+#                           reject any BungeeCord IP-forwarding data
+#                           ("Unknown data in login hostname"), so this MUST stay false.
+#   online_mode: false   -> backend is offline-mode; the proxy must match.
+listeners:
+- host: 0.0.0.0:${PORT}        # Render-injected port; must bind 0.0.0.0
+  query_port: 25577
+  query_enabled: false
+  motd: '&6Eaglercraft Bridge &8» &aclick a server to join'
+  priorities:
+  - backend
+  bind_local_address: true
+  force_default_server: true    # always route to the single backend
+  ping_passthrough: false       # don't query the (possibly-asleep) backend on every ping
+  proxy_protocol: false
+  tab_list: GLOBAL_PING
+  tab_size: 60
+  max_players: 100
+  forced_hosts: {}
+servers:
+  backend:
+    address: ${SERVER}          # mysteriodreemurr.falixsrv.me:24896
+    motd: '&7Backend'
+    restricted: false
+ip_forward: false
+online_mode: false
+prevent_proxy_connections: false
+network_compression_threshold: 256
+connection_throttle: -1
+connection_throttle_limit: 3
+server_connect_timeout: 10000    # backend is ad-gated/sleepy; allow a longer connect
+timeout: 30000
+remote_ping_cache: -1
+player_limit: -1
+forge_support: false
+disable_modern_tab_limiter: true
+log_commands: false
+log_pings: false
+permissions:
+  default: []
+  admin: []
+groups: {}
+disabled_commands:
+- disabledcommandhere
