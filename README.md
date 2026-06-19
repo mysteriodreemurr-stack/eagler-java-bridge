@@ -43,10 +43,11 @@ data in login hostname."* This bridge sets **`ip_forward: false`**.
 
 | File | Purpose |
 |------|---------|
-| `Dockerfile` | `eclipse-temurin:17-jre` base. Downloads BungeeCord + EaglercraftXServer `v1.1.0` + EaglerWeb. Boots once at build to generate the plugins' own default configs. |
-| `entrypoint.sh` | Substitutes `$PORT`/`$SERVER`, points EaglercraftXServer's listener at `0.0.0.0:$PORT`, launches BungeeCord. |
+| `Dockerfile` | `eclipse-temurin:17-jre` base. Downloads BungeeCord + EaglercraftXServer `v1.1.0` + EaglerWeb, then runs the graceful build boot. |
+| `scripts/build-gen-config.sh` | BUILD-time: boots BungeeCord with stdin held open + `end` command so EaglercraftXServer flushes its real default config (`listeners.toml`) into the image. A plain `timeout`/kill boot does NOT work — the JVM EOF-shuts-down mid-`onEnable` and writes nothing. |
+| `entrypoint.sh` | Substitutes `$PORT`/`$SERVER`, sed-patches EaglercraftXServer's `inject_address` to `0.0.0.0:$PORT` (format-agnostic), launches BungeeCord. Refuses to start if the patch didn't take. |
 | `templates/config.yml.template` | BungeeCord config: `ip_forward:false`, `online_mode:false`, one listener on `$PORT`, default server = `$SERVER`. |
-| `templates/listeners.cfg.fallback` | Minimal EaglercraftXServer listener (`listeners.cfg` is YAML under a `.cfg` extension), used only if build-time generation produced none. |
+| `templates/listeners.toml.fallback` | Minimal EaglercraftXServer listener in TOML (its default format), used only if the build boot generated nothing. |
 | `web/index.html` | Landing page served by EaglerWeb showing the `wss://` address to add. |
 | `render.yaml` | Render Blueprint (free plan, `SERVER` env var). |
 
@@ -127,16 +128,20 @@ Render logs — `entrypoint.sh` prints the effective listener and backend addres
 
 **`Unexpected packet received during login process! 4554...` / Render "No open
 HTTP ports detected".** The Eagler listener's `inject_address` didn't match the
-BungeeCord listener, so the port stayed raw Minecraft (the `4554...` decodes to
-`GET / HTTP/1.1`). The config file is `plugins/EaglercraftXServer/listeners.cfg`
-(YAML content, **not** `.yaml`) — `entrypoint.sh` patches it with
-`yq -p=yaml -o=yaml` to `0.0.0.0:$PORT`. If you see this, confirm the entrypoint
-logged the effective listener with that address.
+BungeeCord listener, so the port stayed raw Minecraft (`4554...` decodes to
+`GET / HTTP/1.1`). EaglercraftXServer writes its config as
+`plugins/EaglercraftXServer/listeners.toml` (TOML; the `.cfg` in the docs is a
+placeholder). `entrypoint.sh` sed-patches `inject_address` to `0.0.0.0:$PORT` and
+**refuses to launch** if that didn't take, printing the file. Two upstream causes
+this guards against: (a) the build boot didn't generate `listeners.toml` — check
+the build log's "generated config files" dump (a non-graceful boot writes
+nothing); (b) the file is in an unexpected format — confirm the dumped
+`inject_address` line.
 
 **EaglercraftXServer logs a config error / the landing page 404s.** EaglerWeb's
 web-root path isn't guaranteed across versions. Deploy once, open the Render
-**Shell**, find the generated `plugins/EaglercraftXServer/listeners.cfg` and
-`plugins/EaglerWeb/` layout, then (a) commit the generated `listeners.cfg` as a
+**Shell**, find the generated `plugins/EaglercraftXServer/listeners.toml` and
+`plugins/EaglerWeb/` layout, then (a) commit the generated `listeners.toml` as a
 richer fallback and/or (b) adjust the `web/` copy target in `entrypoint.sh`.
 
 ## Updating versions

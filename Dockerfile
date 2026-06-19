@@ -22,14 +22,12 @@ ARG BUNGEE_URL="https://ci.md-5.net/job/BungeeCord/lastSuccessfulBuild/artifact/
 ARG EAGLERX_VERSION="v1.1.0"
 ARG EAGLERX_URL="https://github.com/lax1dude/eaglerxserver/releases/download/${EAGLERX_VERSION}/EaglerXServer.jar"
 ARG EAGLERWEB_URL="https://github.com/lax1dude/eaglerxserver/releases/download/${EAGLERX_VERSION}/EaglerWeb.jar"
-ARG YQ_VERSION="v4.44.3"
 
-# envsubst (gettext-base) for $PORT/$SERVER templating; yq for surgical YAML edits.
+# envsubst (gettext-base) for $PORT/$SERVER templating. (No yq: config is patched
+# with sed because EaglercraftXServer writes TOML, which yq cannot serialize.)
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates gettext-base \
- && rm -rf /var/lib/apt/lists/* \
- && curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" -o /usr/local/bin/yq \
- && chmod +x /usr/local/bin/yq
+ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /server
 
@@ -39,17 +37,13 @@ RUN mkdir -p /server/plugins /server/templates \
  && curl -fsSL "$EAGLERX_URL"   -o /server/plugins/EaglerXServer.jar \
  && curl -fsSL "$EAGLERWEB_URL" -o /server/plugins/EaglerWeb.jar
 
-# Boot the proxy once at BUILD time so EaglercraftXServer/EaglerWeb write their
-# *own* default config files (authoritative key names) into the image. The
-# entrypoint then only patches the handful of values that depend on $PORT/$SERVER.
-# This avoids hand-guessing the plugin's YAML schema. Non-fatal if it times out.
-RUN cd /server \
- && (timeout 45 java -Xmx256M -jar BungeeCord.jar > /tmp/firstboot.log 2>&1 || true) \
- && echo "================= firstboot.log =================" && cat /tmp/firstboot.log || true \
- && echo "================= generated config tree =========" \
- && ls -laR /server/plugins 2>/dev/null | head -n 120 || true \
- && echo "================= generated listeners.cfg =======" \
- && cat /server/plugins/EaglercraftXServer/listeners.cfg 2>/dev/null || echo "(listeners.cfg not generated)"
+# Boot the proxy ONCE at build time so EaglercraftXServer writes its real default
+# config files into the image (so the entrypoint patches authoritative keys, not
+# guesses). Must be a GRACEFUL boot: stdin held open + `end` command, otherwise
+# the JVM EOF-shuts-down mid-onEnable and no configs are flushed. See the script.
+COPY scripts/ /server/scripts/
+RUN chmod +x /server/scripts/build-gen-config.sh \
+ && /server/scripts/build-gen-config.sh
 
 # Templates / web assets / entrypoint (copied last for better layer caching).
 COPY templates/ /server/templates/

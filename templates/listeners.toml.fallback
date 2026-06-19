@@ -1,0 +1,16 @@
+# Fallback ONLY — used if the build-time graceful boot
+# (scripts/build-gen-config.sh) failed to generate
+# plugins/EaglercraftXServer/listeners.toml. EaglercraftXServer writes its config
+# in TOML by default. entrypoint.sh sed-patches inject_address to 0.0.0.0:$PORT
+# at startup regardless of which format/extension actually exists.
+#
+# NOTE: this is a minimal best-guess block; the plugin fills missing keys with
+# its own defaults on load. If the plugin logs a config error, read the build
+# log's "generated config files" dump, copy the real listeners.toml it writes,
+# and commit it here as an exact fallback.
+[[listener_list]]
+listener_name = "eagler"
+inject_address = "0.0.0.0:25577"   # overwritten at runtime with 0.0.0.0:$PORT
+forward_ip = true
+forward_ip_header = "X-Forwarded-For"
+dual_stack = true

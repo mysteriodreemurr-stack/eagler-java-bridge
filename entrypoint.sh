@@ -24,31 +24,38 @@ echo "==========================================================="
 envsubst '${PORT} ${SERVER}' < /server/templates/config.yml.template > /server/config.yml
 
 # 2) EaglercraftXServer listener -> inject into the Bungee listener on $PORT.
-#    The config file on BungeeCord is listeners.cfg (NOT .yaml). Its *content*
-#    is YAML, but the .cfg extension means yq can't infer the format, so we force
-#    -p=yaml -o=yaml. If the default inject_address (0.0.0.0:25577) is left
-#    unpatched it won't match Bungee's 0.0.0.0:$PORT listener and the port stays
-#    raw Minecraft -> "Unexpected packet... GET / HTTP/1.1" / no open HTTP ports.
-LISTENERS="/server/plugins/EaglercraftXServer/listeners.cfg"
-if [ ! -f "$LISTENERS" ]; then
-  echo "WARN: $LISTENERS missing (build-time generation produced none) -> using fallback template"
+#    EaglercraftXServer writes its config in TOML by default (the file is
+#    plugins/EaglercraftXServer/listeners.toml; ".cfg" in the docs is a
+#    placeholder for the real format extension). It's generated at BUILD time by
+#    scripts/build-gen-config.sh. We detect whatever extension exists and patch
+#    the value with sed -- format-agnostic, because the default inject_address
+#    value "0.0.0.0:25577" looks the same token in TOML/YAML/JSON, and yq cannot
+#    WRITE toml. If inject_address stays at the 25577 default it won't match
+#    Bungee's 0.0.0.0:$PORT listener -> port stays raw Minecraft -> "Unexpected
+#    packet... GET / HTTP/1.1" / Render "no open HTTP ports".
+LISTENERS="$(ls /server/plugins/EaglercraftXServer/listeners.* 2>/dev/null | grep -vi '\.bak$' | head -1 || true)"
+if [ -z "${LISTENERS:-}" ]; then
+  echo "WARN: no generated listeners.* found -> using TOML fallback (verify build log)"
   mkdir -p /server/plugins/EaglercraftXServer
-  cp /server/templates/listeners.cfg.fallback "$LISTENERS"
+  LISTENERS="/server/plugins/EaglercraftXServer/listeners.toml"
+  cp /server/templates/listeners.toml.fallback "$LISTENERS"
 fi
+echo "Patching listener config: $LISTENERS"
 
-# Patch the first listener: bind point + recover real client IP from Render's
-# X-Forwarded-For (otherwise every Eagler player shares Render's LB address).
-# dual_stack is left untouched (defaults true).
-INJECT_ADDR="$INJECT_ADDR" yq -i -p=yaml -o=yaml '
-  .listener_list[0].inject_address     = strenv(INJECT_ADDR) |
-  .listener_list[0].forward_ip         = true |
-  .listener_list[0].forward_ip_header  = "X-Forwarded-For"
-' "$LISTENERS" || {
-  echo "ERROR: failed to patch $LISTENERS; dumping it for debugging:"; cat "$LISTENERS" || true; exit 1;
-}
+# Critical: rewrite the inject_address host:port to 0.0.0.0:$PORT on its line.
+# Matches any IPv4:port token so it works whether the default is 25577 or other.
+sed -i -E "/inject_address/ s#[0-9]{1,3}(\.[0-9]{1,3}){3}:[0-9]+#0.0.0.0:${PORT}#" "$LISTENERS"
+# Best-effort: recover the real client IP from Render's X-Forwarded-For header
+# (otherwise every Eagler player shares Render's load-balancer address).
+sed -i -E "s/(forward_ip[[:space:]]*[:=][[:space:]]*)(false|true)/\1true/"          "$LISTENERS" || true
+sed -i -E "s/(forward_ip_header[[:space:]]*[:=][[:space:]]*[\"']?)X-Real-IP([\"']?)/\1X-Forwarded-For\2/" "$LISTENERS" || true
 
-echo "----- effective EaglercraftXServer listener (listeners.cfg) -----"
-yq -p=yaml '.listener_list[0]' "$LISTENERS" || true
+echo "----- effective inject_address / forward_ip in $LISTENERS -----"
+grep -iE "inject_address|forward_ip" "$LISTENERS" || true
+# Hard guard: refuse to launch if the port still didn't get into inject_address.
+if ! grep -qE "inject_address.*:${PORT}([^0-9]|$)" "$LISTENERS"; then
+  echo "FATAL: inject_address was not patched to port ${PORT}; dumping file:"; cat "$LISTENERS"; exit 1
+fi
 
 # 3) EaglerWeb: if it generated a web root, drop our landing page in so the
 #    Render URL serves something. (Best-effort: schema not guaranteed.)
