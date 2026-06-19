@@ -46,7 +46,7 @@ data in login hostname."* This bridge sets **`ip_forward: false`**.
 | `Dockerfile` | `eclipse-temurin:17-jre` base. Downloads BungeeCord + EaglercraftXServer `v1.1.0` + EaglerWeb. Boots once at build to generate the plugins' own default configs. |
 | `entrypoint.sh` | Substitutes `$PORT`/`$SERVER`, points EaglercraftXServer's listener at `0.0.0.0:$PORT`, launches BungeeCord. |
 | `templates/config.yml.template` | BungeeCord config: `ip_forward:false`, `online_mode:false`, one listener on `$PORT`, default server = `$SERVER`. |
-| `templates/listeners.yaml.fallback` | Minimal EaglercraftXServer listener, used only if build-time generation produced none. |
+| `templates/listeners.cfg.fallback` | Minimal EaglercraftXServer listener (`listeners.cfg` is YAML under a `.cfg` extension), used only if build-time generation produced none. |
 | `web/index.html` | Landing page served by EaglerWeb showing the `wss://` address to add. |
 | `render.yaml` | Render Blueprint (free plan, `SERVER` env var). |
 
@@ -125,10 +125,18 @@ backend `spigot.yml` `bungeecord: false`.
 backend is awake (FalixNodes ad started) and `online-mode=false`. Check the
 Render logs — `entrypoint.sh` prints the effective listener and backend address.
 
+**`Unexpected packet received during login process! 4554...` / Render "No open
+HTTP ports detected".** The Eagler listener's `inject_address` didn't match the
+BungeeCord listener, so the port stayed raw Minecraft (the `4554...` decodes to
+`GET / HTTP/1.1`). The config file is `plugins/EaglercraftXServer/listeners.cfg`
+(YAML content, **not** `.yaml`) — `entrypoint.sh` patches it with
+`yq -p=yaml -o=yaml` to `0.0.0.0:$PORT`. If you see this, confirm the entrypoint
+logged the effective listener with that address.
+
 **EaglercraftXServer logs a config error / the landing page 404s.** EaglerWeb's
 web-root path isn't guaranteed across versions. Deploy once, open the Render
-**Shell**, find the generated `plugins/EaglercraftXServer/listeners.yaml` and
-`plugins/EaglerWeb/` layout, then (a) commit the generated `listeners.yaml` as a
+**Shell**, find the generated `plugins/EaglercraftXServer/listeners.cfg` and
+`plugins/EaglerWeb/` layout, then (a) commit the generated `listeners.cfg` as a
 richer fallback and/or (b) adjust the `web/` copy target in `entrypoint.sh`.
 
 ## Updating versions
@@ -148,6 +156,6 @@ Bump the `ARG` values in the `Dockerfile`
   is build-ready; run the steps above and use Troubleshooting for the keepalive
   case if it appears.
 - **Soft spots flagged in code/README:** the exact EaglercraftXServer
-  `listeners.yaml` schema and EaglerWeb's web-root path are version-dependent;
+  `listeners.cfg` schema and EaglerWeb's web-root path are version-dependent;
   the build-time-generate + patch approach uses the plugin's own defaults to
   stay correct, with a fallback if generation is skipped.

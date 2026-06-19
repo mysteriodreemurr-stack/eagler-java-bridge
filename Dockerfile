@@ -47,7 +47,9 @@ RUN cd /server \
  && (timeout 45 java -Xmx256M -jar BungeeCord.jar > /tmp/firstboot.log 2>&1 || true) \
  && echo "================= firstboot.log =================" && cat /tmp/firstboot.log || true \
  && echo "================= generated config tree =========" \
- && ls -laR /server/plugins 2>/dev/null | head -n 120 || true
+ && ls -laR /server/plugins 2>/dev/null | head -n 120 || true \
+ && echo "================= generated listeners.cfg =======" \
+ && cat /server/plugins/EaglercraftXServer/listeners.cfg 2>/dev/null || echo "(listeners.cfg not generated)"
 
 # Templates / web assets / entrypoint (copied last for better layer caching).
 COPY templates/ /server/templates/
