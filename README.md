@@ -161,6 +161,6 @@ Bump the `ARG` values in the `Dockerfile`
   is build-ready; run the steps above and use Troubleshooting for the keepalive
   case if it appears.
 - **Soft spots flagged in code/README:** the exact EaglercraftXServer
-  `listeners.cfg` schema and EaglerWeb's web-root path are version-dependent;
+  `listeners.toml` schema and EaglerWeb's web-root path are version-dependent;
   the build-time-generate + patch approach uses the plugin's own defaults to
   stay correct, with a fallback if generation is skipped.
